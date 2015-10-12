@@ -25,25 +25,18 @@ def CheckPushAdd(inst):
 def CheckWxorX(inst):
   imm.log("checking WxorX")
 
-def getEPsection(pe):
-    """returns the section that contains the entry point, -1 if none"""
-    for i,s in enumerate(pe.sections):
-        if s.contains_rva(pe.OPTIONAL_HEADER.AddressOfEntryPoint):
-            break
-    else: return -1
-    return i
+def getEPsection(pe,rva):
+  """returns the section that contains the entry point, -1 if none"""
+  for i,s in enumerate(pe.sections):
+      if s.contains_rva(rva):
+          break
+  else: return -1
+  return i
 
-def load(data):
-    """load PE, return pe object, it's entry point, imagebase, VA of the section of the entry point, its physical size"""
-    pe = pefile.PE(data)
-    oep = pe.OPTIONAL_HEADER.AddressOfEntryPoint
-    ib = pe.OPTIONAL_HEADER.ImageBase
-    section = pe.sections[getEPsection(pe)]
-    start, size = section.VirtualAddress, section.SizeOfRawData
 
-    return pe, oep, ib, start, size
 
-def initPE():
+"""load PE, return pe object, it's entry point, imagebase, VA of the section of the entry point, its physical size"""
+def loadPE():
   try:
     name = imm.getDebuggedName()
     module  = imm.getModule(name)
@@ -53,15 +46,24 @@ def initPE():
   except Exception,e:
     imm.log('module %s not found'%(name))
     return False
+  
   start = module.getBaseAddress()
   size = module.getSize()
-  
   data = imm.readMemory(start, size)
 
+
   pe = pefile.PE(data=data)
-#  imm.log(str(pe.sections))
+  oep = pe.OPTIONAL_HEADER.AddressOfEntryPoint
+  ib = pe.OPTIONAL_HEADER.ImageBase
+  section = pe.sections[getEPsection(pe,oep)]
+  start, size = section.VirtualAddress, section.SizeOfRawData
+
+  return pe, oep, ib, start, size
+
+def displaySections(pe):
   for i,section in enumerate(pe.sections):
-    imm.log("%s %s %s %s"%(i,hex(section.VirtualAddress+),hex(section.Misc_VirtualSize), hex(section.SizeOfRawData )))
+    imm.log("%s %s %s %s"%(i, hex(section.VirtualAddress+ib), hex(section.Misc_VirtualSize), hex(section.SizeOfRawData )))
+
 """
 Main
 """
@@ -75,8 +77,9 @@ def usage():
 def main(args):
   """arguments error handling"""
   imm.log("dsadsa")
-  initPE()
-  return "das"
+  pe,oep,ib,start,size = loadPE()
+  for i,section in enumerate(pe.sections):
+    imm.log("%s %s %s %s"%(i, hex(section.VirtualAddress+ib), hex(section.Misc_VirtualSize), hex(section.SizeOfRawData )))
   if not args:
     usage()
     return "No args"
